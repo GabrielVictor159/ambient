@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-backup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-backup
+  template:
+    metadata:
+      labels:
+        app: postgres-backup
+    spec:
+      containers:
+      - name: postgres-backup
+        image: offen/docker-volume-backup
+        env:
+        - name: BACKUP_NAME
+          value: "postgres_data_backup"
+        - name: CLEANUP_KEEP_DAYS
+          value: "7"
+        - name: BACKUP_INTERVAL
+          value: "345600"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /volume
+        - name: backups
+          mountPath: /backups
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: backups
+        hostPath:
+          path: /backups

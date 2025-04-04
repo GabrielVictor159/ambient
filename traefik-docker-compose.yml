@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.${HTTP_SCHEME}.address=:443"
+      - "--providers.docker.exposedbydefault=false"
+      - "--certificatesresolvers.${TLS_POLITIC}.acme.httpchallenge=true"
+      - "--certificatesresolvers.${TLS_POLITIC}.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.${TLS_POLITIC}.acme.email=gabrielvictor159487@gmail.com"
+      - "--certificatesresolvers.${TLS_POLITIC}.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entryPoint.to=${HTTP_SCHEME}"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" 
+    networks:
+      - traefik-network
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${BASE_PATH}`)"
+      - "traefik.http.routers.traefik.entrypoints=${HTTP_SCHEME}"
+      - "traefik.http.routers.traefik.tls.certresolver=${TLS_POLITIC}"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=gabriel:$$apr1$$QUg2oyRd$$iQfaU/OFs0JYP3UFuXyNU0"
+networks:
+  traefik-network:
+    external: true

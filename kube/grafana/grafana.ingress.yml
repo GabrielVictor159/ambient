@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/ingress.class: traefik
+  labels:
+    app: grafana
+  name: grafana
+  namespace: default
+spec:
+  rules:
+  - host: grafana.${BASE_PATH} 
+    http:
+      paths:
+      - backend:
+          service:
+            name: grafana
+            port: 
+              number: 3000
+        path: /
+        pathType: Prefix  
+  tls:
+  - hosts:
+    - grafana.${BASE_PATH} 
+    secretName: grafana-com-tls

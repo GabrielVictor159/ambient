@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+
+    scrape_configs:
+    - job_name: 'serviceclock_backend_api'
+      scheme: http
+      metrics_path: '/metrics'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - default
+      authorization:
+        credentials: "${METRICS_PASSWORD}"
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: serviceclock-backend-api
+        - source_labels: [__meta_kubernetes_pod_name]
+          target_label: instance
+    
+    - job_name: 'cadvisor'
+      metrics_path: '/metrics'
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: cadvisor
+        - source_labels: [__meta_kubernetes_pod_name]
+          target_label: instance
+
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+              - default 
+      metrics_path: /metrics
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_name]
+          target_label: instance
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          target_label: app
+
+
+

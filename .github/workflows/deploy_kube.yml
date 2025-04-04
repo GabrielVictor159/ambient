@@ -1,0 +1,89 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v2
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v1
+      with:
+        kubectl-version: 'latest'
+
+    - name: Configure Kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
+    - name: Set environment variables
+      run: |
+        echo "BASE_PATH=${{ secrets.BASE_PATH }}" >> $GITHUB_ENV
+        echo "GRAFANA_USER=${{ secrets.GRAFANA_USER }}" >> $GITHUB_ENV
+        echo "GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}" >> $GITHUB_ENV
+        echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> $GITHUB_ENV
+        echo "DB_UID=${{ secrets.DB_UID }}" >> $GITHUB_ENV
+        echo "METRICS_PASSWORD=${{ secrets.METRICS_PASSWORD }}" >> $GITHUB_ENV
+
+
+    - name: Replace variables in YAML files
+      run: |
+        envsubst < ./kube/cert-manager/cert-manager.clusterissuer.yml > ./kube/cert-manager/cert-manager.clusterissuer.substituted.yml
+
+        envsubst < ./kube/grafana/grafana.deployment.yml > ./kube/grafana/grafana.deployment.substituted.yml
+        envsubst < ./kube/grafana/grafana.service.yml > ./kube/grafana/grafana.service.substituted.yml
+        envsubst < ./kube/grafana/grafana.pvc.yml > ./kube/grafana/grafana.pvc.substituted.yml
+        envsubst < ./kube/grafana/grafana.ingress.yml > ./kube/grafana/grafana.ingress.substituted.yml
+
+        envsubst < ./kube/postgres/postgres.deployment.yml > ./kube/postgres/postgres.deployment.substituted.yml
+        envsubst < ./kube/postgres/postgres.service.yml > ./kube/postgres/postgres.service.substituted.yml
+        envsubst < ./kube/postgres/postgres.pvc.yml > ./kube/postgres/postgres.pvc.substituted.yml
+
+        envsubst < ./kube/postgres_backup/postgres_backup.deployment.yml > ./kube/postgres_backup/postgres_backup.deployment.substituted.yml
+        envsubst < ./kube/postgres_backup/postgres_backup.service.yml > ./kube/postgres_backup/postgres_backup.service.substituted.yml
+
+        envsubst < ./kube/prometheus/prometheus.deployment.yml > ./kube/prometheus/prometheus.deployment.substituted.yml
+        envsubst < ./kube/prometheus/prometheus.service.yml > ./kube/prometheus/prometheus.service.substituted.yml
+        envsubst < ./kube/prometheus/prometheus.pvc.yml > ./kube/prometheus/prometheus.pvc.substituted.yml
+        envsubst < ./kube/prometheus/prometheus.configmap.yml > ./kube/prometheus/prometheus.configmap.substituted.yml
+
+        envsubst < ./kube/others/cAdvisor_daemonset.yml > ./kube/others/cAdvisor_daemonset.substituted.yml
+
+    - name: Apply Kubernetes Manifests
+      run: |
+        # Aplica os arquivos YAML substituídos ao Kubernetes
+        kubectl apply -f ./kube/cert-manager/cert-manager.clusterissuer.substituted.yml
+
+        kubectl apply -f ./kube/grafana/grafana.deployment.substituted.yml
+        kubectl apply -f ./kube/grafana/grafana.service.substituted.yml
+        kubectl apply -f ./kube/grafana/grafana.pvc.substituted.yml
+        kubectl apply -f ./kube/grafana/grafana.ingress.substituted.yml
+
+        kubectl apply -f ./kube/postgres/postgres.deployment.substituted.yml
+        kubectl apply -f ./kube/postgres/postgres.service.substituted.yml
+        kubectl apply -f ./kube/postgres/postgres.pvc.substituted.yml
+
+        kubectl apply -f ./kube/postgres_backup/postgres_backup.deployment.substituted.yml
+        kubectl apply -f ./kube/postgres_backup/postgres_backup.service.substituted.yml
+
+        kubectl apply -f ./kube/prometheus/prometheus.deployment.substituted.yml
+        kubectl apply -f ./kube/prometheus/prometheus.service.substituted.yml
+        kubectl apply -f ./kube/prometheus/prometheus.pvc.substituted.yml
+        kubectl apply -f ./kube/prometheus/prometheus.configmap.substituted.yml
+
+        kubectl apply -f ./kube/others/cAdvisor_daemonset.substituted.yml
+
+    - name: Restart Traefik Deployment
+      run: |
+        kubectl rollout restart deployment traefik -n kube-system
